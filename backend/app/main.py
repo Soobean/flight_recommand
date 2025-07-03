@@ -17,10 +17,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/")
 async def root():
     """API 상태 확인"""
     return {"message": "지능형 일본 항공권 분석기 API", "version": "0.1.0"}
+
 
 @app.get("/health")
 async def health_check():
