@@ -1,0 +1,41 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ develop, main ]
+    paths: ['backend/**']
+  pull_request:
+    branches: [ develop, main ]
+    paths: ['backend/**']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        cd backend
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: Run pre-commit
+      run: |
+        cd backend
+        pre-commit run --all-files
+
+    - name: Test API endpoints
+      run: |
+        cd backend
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+        sleep 5
+        curl -f http://localhost:8000/health || exit 1
+        pkill -f uvicorn
