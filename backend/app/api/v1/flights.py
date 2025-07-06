@@ -1,129 +1,185 @@
-from datetime import date, datetime
-from typing import Any, Dict, Optional
+from datetime import datetime
+from typing import Any, Dict
 
-from app.config.settings import settings
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from app.models.flight_requests import (
+    CheapestDateRequest,
+    FlightDurationSearchRequest,
+    FlightSearchRequest,
+)
 from app.services.amadeus_service import AmadeusService
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from app.services.cache_service import CacheService
+from app.utils.cache_keys import (
+    airport_info_key,
+    cheapest_dates_key,
+    duration_search_key,
+    flight_search_key,
+    popular_routes_key,
+)
+from app.utils.decorators import cached_response, enhance_response, handle_exceptions
+from app.utils.response_enhancers import (
+    enhance_airport_info_response,
+    enhance_cheapest_dates_response,
+    enhance_duration_search_response,
+    enhance_flight_search_response,
+    get_popular_routes_data,
+)
+from app.utils.validators import validate_iata_code
 
 router = APIRouter(prefix="/flights", tags=["flights"])
 
 
-class FlightSearchRequest(BaseModel):
-    """항공편 검색 요청 모델"""
-
-    origin: str = Field(..., description="출발지 IATA 코드", example="ICN")
-    destination: str = Field(..., description="도착지 IATA 코드", example="NRT")
-    departure_date: str = Field(
-        ..., description="출발 날짜 (YYYY-MM-DD)", example="2025-08-15"
-    )
-    return_date: Optional[str] = Field(
-        None, description="귀국 날짜 (YYYY-MM-DD)", example="2025-08-18"
-    )
-    adults: int = Field(1, description="성인 승객 수", example=1)
-    currency: str = Field("KRW", description="통화 코드", example="KRW")
-
-
-class CheapestDateRequest(BaseModel):
-    """최저가 날짜 검색 요청 모델"""
-
-    origin: str = Field(..., description="출발지 IATA 코드", example="ICN")
-    destination: str = Field(..., description="도착지 IATA 코드", example="NRT")
-    departure_date: str = Field(
-        ..., description="출발 날짜 (YYYY-MM-DD)", example="2025-08-15"
-    )
-    duration: Optional[int] = Field(None, description="여행 기간 (일수)", example=4)
-
-
-# 의존성 주입
 def get_amadeus_service() -> AmadeusService:
-    """Amadeus 서비스 인스턴스 반환"""
     return AmadeusService()
 
 
+def get_cache_service() -> CacheService:
+    return CacheService()
+
+
 @router.post("/search")
+@handle_exceptions("항공편 검색 중 오류가 발생했습니다")
+@cached_response(flight_search_key, ttl_seconds=900)
+@enhance_response(enhance_flight_search_response)
 async def search_flights(
     request: FlightSearchRequest,
     amadeus_service: AmadeusService = Depends(get_amadeus_service),
+    cache_service: CacheService = Depends(get_cache_service),
 ) -> Dict[str, Any]:
-    """
-    실시간 항공편 검색
+    result = await amadeus_service.search_flight_offers(
+        origin=request.origin,
+        destination=request.destination,
+        departure_date=request.departure_date,
+        return_date=request.return_date,
+        adults=request.adults,
+        currency=request.currency,
+    )
 
-    일본 여행 항공편을 실시간으로 검색합니다.
-    """
-    try:
-        result = await amadeus_service.search_flight_offers(
-            origin=request.origin,
-            destination=request.destination,
-            departure_date=request.departure_date,
-            return_date=request.return_date,
-            adults=request.adults,
-            currency=request.currency,
-        )
+    if not result["success"]:
+        raise HTTPException(status_code=404, detail=result["message"])
 
-        if result["success"]:
-            return {
-                "success": True,
-                "message": "항공편 검색 완료",
-                "data": result["data"],
-                "meta": result.get("meta", {}),
-                "dictionaries": result.get("dictionaries", {}),
-            }
-        else:
-            raise HTTPException(status_code=404, detail=result["message"])
+    return {
+        "success": True,
+        "message": "항공편 검색 완료",
+        "data": result["data"],
+        "meta": result.get("meta", {}),
+        "dictionaries": result.get("dictionaries", {}),
+    }
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"항공편 검색 중 오류가 발생했습니다: {str(e)}")
+
+@router.post("/search-by-duration")
+@handle_exceptions("기간별 항공편 검색 중 오류가 발생했습니다")
+@cached_response(duration_search_key, ttl_seconds=1800)
+@enhance_response(enhance_duration_search_response)
+async def search_flights_by_duration(
+    request: FlightDurationSearchRequest,
+    amadeus_service: AmadeusService = Depends(get_amadeus_service),
+    cache_service: CacheService = Depends(get_cache_service),
+) -> Dict[str, Any]:
+    from datetime import datetime, timedelta
+
+    departure = datetime.strptime(request.departure_date, "%Y-%m-%d").date()
+    return_date = departure + timedelta(days=request.duration_days - 1)
+
+    result = await amadeus_service.search_flight_offers(
+        origin=request.origin,
+        destination=request.destination,
+        departure_date=request.departure_date,
+        return_date=return_date.strftime("%Y-%m-%d"),
+        adults=request.adults,
+        currency=request.currency,
+    )
+
+    if not result["success"]:
+        raise HTTPException(status_code=404, detail=result["message"])
+
+    return {
+        "success": True,
+        "message": f"{request.duration_days}일 여행 항공편 검색 완료",
+        "data": result["data"],
+        "meta": result.get("meta", {}),
+        "dictionaries": result.get("dictionaries", {}),
+    }
 
 
 @router.post("/cheapest-dates")
+@handle_exceptions("최저가 날짜 검색 중 오류가 발생했습니다")
+@cached_response(cheapest_dates_key, ttl_seconds=3600)
+@enhance_response(enhance_cheapest_dates_response)
 async def search_cheapest_dates(
     request: CheapestDateRequest,
     amadeus_service: AmadeusService = Depends(get_amadeus_service),
+    cache_service: CacheService = Depends(get_cache_service),
 ) -> Dict[str, Any]:
-    """
-    최저가 날짜 검색
+    result = await amadeus_service.search_cheapest_dates(
+        origin=request.origin,
+        destination=request.destination,
+        departure_date=request.departure_date,
+        duration=request.duration,
+    )
 
-    특정 구간의 최저가 항공편 날짜를 검색합니다.
-    """
-    try:
-        result = await amadeus_service.search_cheapest_dates(
-            origin=request.origin,
-            destination=request.destination,
-            departure_date=request.departure_date,
-            duration=request.duration,
-        )
+    if not result["success"]:
+        raise HTTPException(status_code=404, detail=result["message"])
 
-        if result["success"]:
-            return {
-                "success": True,
-                "message": "최저가 날짜 검색 완료",
-                "data": result["data"],
-                "meta": result.get("meta", {}),
-            }
-        else:
-            raise HTTPException(status_code=404, detail=result["message"])
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"최저가 날짜 검색 중 오류가 발생했습니다: {str(e)}")
+    return {
+        "success": True,
+        "message": "최저가 날짜 검색 완료",
+        "data": result["data"],
+        "meta": result.get("meta", {}),
+    }
 
 
 @router.get("/airport/{iata_code}")
+@handle_exceptions("공항 정보 조회 중 오류가 발생했습니다")
+@cached_response(airport_info_key, ttl_seconds=86400)
+@enhance_response(enhance_airport_info_response)
 async def get_airport_info(
-    iata_code: str, amadeus_service: AmadeusService = Depends(get_amadeus_service)
+    iata_code: str,
+    amadeus_service: AmadeusService = Depends(get_amadeus_service),
+    cache_service: CacheService = Depends(get_cache_service),
 ) -> Dict[str, Any]:
-    """
-    공항 정보 조회
+    validated_code = validate_iata_code(iata_code)
 
-    IATA 코드로 공항 정보를 조회합니다.
-    """
-    try:
-        result = await amadeus_service.get_airport_info(iata_code.upper())
+    result = await amadeus_service.get_airport_info(validated_code)
 
-        if result["success"]:
-            return {"success": True, "message": "공항 정보 조회 완료", "data": result["data"]}
-        else:
-            raise HTTPException(status_code=404, detail=result["message"])
+    if not result["success"]:
+        raise HTTPException(status_code=404, detail=result["message"])
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"공항 정보 조회 중 오류가 발생했습니다: {str(e)}")
+    return {"success": True, "message": "공항 정보 조회 완료", "data": result["data"]}
+
+
+@router.get("/popular-routes")
+@handle_exceptions("인기 노선 조회 중 오류가 발생했습니다")
+@cached_response(popular_routes_key, ttl_seconds=21600)
+async def get_popular_routes(
+    origin: str = Query("ICN", description="출발지 IATA 코드"),
+    limit: int = Query(10, description="결과 개수", ge=1, le=50),
+    cache_service: CacheService = Depends(get_cache_service),
+) -> Dict[str, Any]:
+    result_data = get_popular_routes_data(origin, limit)
+
+    return {
+        "success": True,
+        "message": f"{origin} 출발 인기 노선 조회 완료",
+        "data": result_data,
+    }
+
+
+@router.get("/health")
+async def flights_health_check(
+    amadeus_service: AmadeusService = Depends(get_amadeus_service),
+) -> Dict[str, Any]:
+    return {
+        "service": "flights",
+        "status": "healthy",
+        "amadeus_active": amadeus_service.is_active,
+        "available_endpoints": [
+            "search",
+            "search-by-duration",
+            "cheapest-dates",
+            "airport/{iata_code}",
+            "popular-routes",
+        ],
+        "timestamp": datetime.now().isoformat(),
+    }

@@ -1,10 +1,11 @@
 """Amadeus API 연동 서비스 - 최신 버전"""
+
 import asyncio
 import logging
-from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from amadeus import Client, ResponseError
+
 from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -69,7 +70,11 @@ class AmadeusService:
                     "meta": getattr(response, "meta", {}),
                 }
             else:
-                return {"success": False, "message": "검색 결과가 없습니다.", "data": []}
+                return {
+                    "success": False,
+                    "message": "검색 결과가 없습니다.",
+                    "data": [],
+                }
 
         except ResponseError as error:
             logger.error(f"Amadeus API 오류: {error}")
@@ -80,7 +85,11 @@ class AmadeusService:
             }
         except Exception as error:
             logger.error(f"예상치 못한 오류: {error}")
-            return {"success": False, "message": "서버 오류가 발생했습니다.", "data": []}
+            return {
+                "success": False,
+                "message": "서버 오류가 발생했습니다.",
+                "data": [],
+            }
 
     async def search_flight_offers(
         self,
@@ -127,7 +136,11 @@ class AmadeusService:
                     "dictionaries": getattr(response, "dictionaries", {}),
                 }
             else:
-                return {"success": False, "message": "검색 결과가 없습니다.", "data": []}
+                return {
+                    "success": False,
+                    "message": "검색 결과가 없습니다.",
+                    "data": [],
+                }
 
         except ResponseError as error:
             logger.error(f"Amadeus API 오류: {error}")
@@ -138,7 +151,11 @@ class AmadeusService:
             }
         except Exception as error:
             logger.error(f"예상치 못한 오류: {error}")
-            return {"success": False, "message": "서버 오류가 발생했습니다.", "data": []}
+            return {
+                "success": False,
+                "message": "서버 오류가 발생했습니다.",
+                "data": [],
+            }
 
     async def get_airport_info(self, iata_code: str) -> Dict[str, Any]:
         """공항 정보 조회"""
@@ -163,7 +180,11 @@ class AmadeusService:
                     "data": response.data[0] if response.data else {},
                 }
             else:
-                return {"success": False, "message": "공항 정보를 찾을 수 없습니다.", "data": {}}
+                return {
+                    "success": False,
+                    "message": "공항 정보를 찾을 수 없습니다.",
+                    "data": {},
+                }
 
         except ResponseError as error:
             logger.error(f"Amadeus API 오류: {error}")
@@ -174,7 +195,11 @@ class AmadeusService:
             }
         except Exception as error:
             logger.error(f"예상치 못한 오류: {error}")
-            return {"success": False, "message": "서버 오류가 발생했습니다.", "data": {}}
+            return {
+                "success": False,
+                "message": "서버 오류가 발생했습니다.",
+                "data": {},
+            }
 
     async def _get_dummy_cheapest_dates(
         self,
@@ -298,4 +323,8 @@ class AmadeusService:
         if iata_code in airport_data:
             return {"success": True, "data": airport_data[iata_code]}
         else:
-            return {"success": False, "message": "공항 정보를 찾을 수 없습니다.", "data": {}}
+            return {
+                "success": False,
+                "message": "공항 정보를 찾을 수 없습니다.",
+                "data": {},
+            }

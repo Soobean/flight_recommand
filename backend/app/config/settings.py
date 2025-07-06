@@ -1,8 +1,7 @@
-import os
 from pathlib import Path
 from typing import List, Optional
 
-from pydantic import Field, validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -51,7 +50,11 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: Optional[str] = Field(default="redis://localhost:6379/2")
 
     # 보안 설정
-    SECRET_KEY: str = Field(default="your-secret-key-here")
+    SECRET_KEY: str = Field(
+        default="default-secret-key-minimum-32-characters-for-development-only",
+        min_length=32,
+        description="보안 키 (환경변수 필수)",
+    )
     ALGORITHM: str = Field(default="HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30)
 
@@ -63,17 +66,33 @@ class Settings(BaseSettings):
     # 로깅 설정
     LOG_LEVEL: str = Field(default="INFO")
 
-    @validator("ALLOWED_ORIGINS", pre=True)
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
     def parse_cors_origins(cls, v):
         if isinstance(v, str):
             return [origin.strip() for origin in v.split(",")]
         return v
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
-        extra = "ignore"
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def validate_secret_key(cls, v):
+        if len(v) < 32:
+            raise ValueError("보안 키는 최소 32자 이상이어야 합니다.")
+        return v
+
+    @field_validator("AMADEUS_CLIENT_ID")
+    @classmethod
+    def validate_amadeus_credentials(cls, v, info):
+        if info.data.get("USE_REAL_AMADEUS", False) and not v:
+            raise ValueError("실제 Amadeus 사용시 클라이언트 ID가 필요합니다.")
+        return v
+
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": True,
+        "extra": "ignore",
+    }
 
 
 settings = Settings()
