@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 import redis
+
 from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ class CacheService:
                 socket_timeout=5,
                 socket_connect_timeout=5,
             )
-            
+
             self.redis_client.ping()
             self.is_connected = True
             logger.info("CacheService Redis 연결 성공")
@@ -144,8 +145,14 @@ class CacheService:
 
         all_keys = set()
         for pattern in patterns:
-            keys = self.redis_client.keys(pattern)
-            all_keys.update(keys)
+            cursor = 0
+            while True:
+                cursor, keys = self.redis_client.scan(
+                    cursor=cursor, match=pattern, count=100
+                )
+                all_keys.update(keys)
+                if cursor == 0:
+                    break
 
         return list(all_keys)
 
@@ -166,7 +173,15 @@ class CacheService:
         Returns:
             갱신 결과 정보
         """
-        from app.tasks.monthly_data_collection import collect_monthly_cheapest_data
+        try:
+            from app.tasks.monthly_data_collection import collect_monthly_cheapest_data
+        except ImportError as e:
+            logger.warning(f"Celery 태스크 모듈 로드 실패: {str(e)}")
+            return {
+                "success": False,
+                "message": "백그라운드 태스크 시스템을 사용할 수 없습니다",
+                "data": {"error": "celery_unavailable"},
+            }
 
         try:
             refresh_info = {
@@ -305,7 +320,15 @@ class CacheService:
         try:
             # Redis에서 키 조회
             search_pattern = pattern or "*"
-            all_keys = self.redis_client.keys(search_pattern)
+            all_keys = []
+            cursor = 0
+            while True:
+                cursor, keys = self.redis_client.scan(
+                    cursor=cursor, match=search_pattern, count=100
+                )
+                all_keys.extend(keys)
+                if cursor == 0:
+                    break
 
             # 제한된 키만 반환
             limited_keys = all_keys[:limit]
@@ -362,10 +385,15 @@ class CacheService:
                         if current_time > expires_at:
                             expired_keys.append(key)
                     except (ValueError, TypeError):
-                        expired_keys.append(key)  # 잘못된 형식도 정리
+                        expired_keys.append(key)
 
             for key in expired_keys:
                 del self._memory_cache[key]
+                cleaned_count += 1
+
+            while len(self._memory_cache) > 1000:
+                oldest_key = next(iter(self._memory_cache))
+                del self._memory_cache[oldest_key]
                 cleaned_count += 1
 
             return {
@@ -550,7 +578,15 @@ class CacheService:
         self, regions: Optional[List[str]] = None, months_ahead: int = 3
     ) -> Dict[str, Any]:
         """캐시 워밍업"""
-        from app.tasks.monthly_data_collection import collect_monthly_cheapest_data
+        try:
+            from app.tasks.monthly_data_collection import collect_monthly_cheapest_data
+        except ImportError as e:
+            logger.warning(f"Celery 태스크 모듈 로드 실패: {str(e)}")
+            return {
+                "success": False,
+                "message": "백그라운드 태스크 시스템을 사용할 수 없습니다",
+                "data": {"error": "celery_unavailable"},
+            }
 
         try:
             warmup_info = {
@@ -650,6 +686,10 @@ class CacheService:
                 return self.redis_client.setex(key, ttl_seconds, value_str)
             else:
                 # 메모리 캐시
+                if len(self._memory_cache) >= 1000:
+                    oldest_key = next(iter(self._memory_cache))
+                    del self._memory_cache[oldest_key]
+
                 self._memory_cache[key] = {
                     "data": value,
                     "expires_at": (
