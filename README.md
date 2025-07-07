@@ -561,7 +561,7 @@ ALLOWED_ORIGINS=https://yourdomain.com
 - [ ] 자연어 검색 기능
 
 ### 📱 Phase 3: 모바일 앱 (2025 Q4)
-- [ ] React Native 앱 개발
+- [ ] React 앱 개발
 - [ ] 실시간 알림 시스템
 - [ ] 오프라인 모드 지원
 
@@ -600,7 +600,7 @@ ALLOWED_ORIGINS=https://yourdomain.com
 ## 🙏 감사의 말
 
 - **[Amadeus for Developers](https://developers.amadeus.com)** - 실제 항공편 데이터 제공
-- **[FastAPI](https://fastapi.tiangolo.com)** - 훌륭한 웹 프레임워크
+- **[FastAPI](https://fastapi.tiangolo.com)** - 웹 프레임워크
 - **[Pydantic](https://pydantic.dev)** - 강력한 데이터 검증
 - **[Celery](https://docs.celeryproject.org)** - 안정적인 작업 큐
 - **[Redis](https://redis.io)** - 고성능 캐싱 솔루션
