@@ -1,5 +1,3 @@
-"""Amadeus API 연동 서비스 - 최신 버전"""
-
 import asyncio
 import logging
 from typing import Any, Dict, Optional

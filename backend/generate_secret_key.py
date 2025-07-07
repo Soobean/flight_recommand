@@ -1,7 +1,3 @@
-#!/usr/bin/env python3
-"""
-안전한 SECRET_KEY 생성 스크립트
-"""
 import secrets
 import string
 

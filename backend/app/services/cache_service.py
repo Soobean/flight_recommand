@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 import redis
-
 from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -16,13 +15,16 @@ class CacheService:
     def __init__(self):
         """캐시 서비스 초기화"""
         try:
-            self.redis_client = redis.Redis.from_url(
-                settings.REDIS_URL,
+            self.redis_client = redis.Redis(
+                host=settings.REDIS_HOST,
+                port=settings.REDIS_PORT,
+                username=settings.REDIS_USERNAME,
+                password=settings.REDIS_PASSWORD,
                 decode_responses=True,
                 socket_timeout=5,
                 socket_connect_timeout=5,
             )
-            # 연결 테스트
+            
             self.redis_client.ping()
             self.is_connected = True
             logger.info("CacheService Redis 연결 성공")
