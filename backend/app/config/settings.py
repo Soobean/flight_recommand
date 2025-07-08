@@ -13,8 +13,12 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = Field(default="development")
 
     # Amadeus API 설정
-    AMADEUS_CLIENT_ID: str = Field(description="Amadeus 클라이언트 ID")
-    AMADEUS_CLIENT_SECRET: str = Field(description="Amadeus 클라이언트 시크릿")
+    AMADEUS_CLIENT_ID: Optional[str] = Field(
+        default=None, description="Amadeus 클라이언트 ID"
+    )
+    AMADEUS_CLIENT_SECRET: Optional[str] = Field(
+        default=None, description="Amadeus 클라이언트 시크릿"
+    )
     AMADEUS_BASE_URL: str = Field(default="https://test.api.amadeus.com")
     AMADEUS_HOSTNAME: str = Field(default="test")
 
@@ -83,11 +87,12 @@ class Settings(BaseSettings):
             raise ValueError("보안 키는 최소 32자 이상이어야 합니다.")
         return v
 
-    @field_validator("AMADEUS_CLIENT_ID")
+    @field_validator("AMADEUS_CLIENT_ID", "AMADEUS_CLIENT_SECRET")
     @classmethod
     def validate_amadeus_credentials(cls, v, info):
         if info.data.get("USE_REAL_AMADEUS", False) and not v:
-            raise ValueError("실제 Amadeus 사용시 클라이언트 ID가 필요합니다.")
+            field_name = info.field_name
+            raise ValueError(f"실제 Amadeus 사용시 {field_name}가 필요합니다.")
         return v
 
     model_config = {
