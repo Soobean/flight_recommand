@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import List, Optional
-import secrets
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
@@ -50,10 +49,12 @@ class Settings(BaseSettings):
 
     # Celery 설정
     CELERY_BROKER_URL: Optional[str] = Field(default=None, description="Celery 브로커 URL")
-    CELERY_RESULT_BACKEND: Optional[str] = Field(default=None, description="Celery 결과 백엔드")
+    CELERY_RESULT_BACKEND: Optional[str] = Field(
+        default=None, description="Celery 결과 백엔드"
+    )
 
     SECRET_KEY: str = Field(
-        default='@VQC2PP$^#Ozbu6suJLoLq03ay1CVyMi$%XRdO9QH7qgEc!C$M14owWA3z!uS1NJ',
+        default="@VQC2PP$^#Ozbu6suJLoLq03ay1CVyMi$%XRdO9QH7qgEc!C$M14owWA3z!uS1NJ",
         min_length=32,
         description="보안 키 (환경변수 필수 - 프로덕션 환경에서는 반드시 설정)",
     )

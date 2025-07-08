@@ -27,12 +27,9 @@ repos:
     hooks:
       - id: flake8
         name: "🔍 Flake8 (린팅)"
-        args: [
-          --max-line-length=88,
-          --extend-ignore=E203,W503,E501,
-          --exclude=migrations,venv,.venv,
-          --max-complexity=10
-        ]
+        args: [--max-line-length=88, --extend-ignore=E203,W503,E501, --max-complexity=10]
+        exclude: ^(migrations/|venv/|\.venv/)
+        types: [python]
         additional_dependencies: [
           flake8-docstrings,
           flake8-bugbear,
@@ -141,7 +138,6 @@ repos:
       - id: detect-secrets
         name: "🕵️ 비밀정보 노출 검사"
         args: [
-          --baseline, .secrets.baseline,
           --exclude-files, '.*\.env.*',
           --exclude-files, '.*\.key$',
           --exclude-files, '.*\.pem$'

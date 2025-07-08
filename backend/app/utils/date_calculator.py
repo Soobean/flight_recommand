@@ -141,34 +141,44 @@ class DateCalculator:
         day = target_date.day
 
         # 시즌별 세부 조정
-        if season == "spring":
-            if month == 4:  # 벚꽃 절정기
-                return "very_high"
-            elif month == 3 and day >= 20:  # 벚꽃 시작
-                return "high"
-            else:
-                return base_impact
+        season_mapping = {
+            "spring": DateCalculator._get_spring_impact,
+            "summer": DateCalculator._get_summer_impact,
+            "autumn": DateCalculator._get_autumn_impact,
+            "winter": DateCalculator._get_winter_impact,
+        }
 
-        elif season == "summer":
-            if month in [7, 8]:  # 여름휴가철
-                return "high"
-            else:
-                return base_impact
+        calculator = season_mapping.get(season)
+        if calculator:
+            return calculator(month, day, base_impact)
+        return base_impact
 
-        elif season == "autumn":
-            if month in [10, 11]:  # 단풍 시즌
-                return "high"
-            else:
-                return "medium"
+    @staticmethod
+    def _get_spring_impact(month: int, day: int, base_impact: str) -> str:
+        if month == 4:  # 벚꽃 절정기
+            return "very_high"
+        elif month == 3 and day >= 20:  # 벚꽃 시작
+            return "high"
+        return base_impact
 
-        elif season == "winter":
-            if month == 12 and day >= 20:  # 연말 시작
-                return "high"
-            elif month == 1 and day <= 10:  # 신정 연휴
-                return "high"
-            else:
-                return base_impact
+    @staticmethod
+    def _get_summer_impact(month: int, day: int, base_impact: str) -> str:
+        if month in [7, 8]:  # 여름휴가철
+            return "high"
+        return base_impact
 
+    @staticmethod
+    def _get_autumn_impact(month: int, day: int, base_impact: str) -> str:
+        if month in [10, 11]:  # 단풍 시즌
+            return "high"
+        return "medium"
+
+    @staticmethod
+    def _get_winter_impact(month: int, day: int, base_impact: str) -> str:
+        if month == 12 and day >= 20:  # 연말 시작
+            return "high"
+        elif month == 1 and day <= 10:  # 신정 연휴
+            return "high"
         return base_impact
 
     @staticmethod

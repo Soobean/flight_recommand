@@ -156,27 +156,54 @@ class CacheService:
 
         return list(all_keys)
 
+    def _import_celery_task(self):
+        """Celery 태스크 모듈 임포트"""
+        try:
+            from app.tasks.monthly_data_collection import collect_monthly_cheapest_data
+
+            return collect_monthly_cheapest_data
+        except ImportError as e:
+            logger.warning(f"Celery 태스크 모듈 로드 실패: {str(e)}")
+            return None
+
+    def _get_months_to_refresh(self):
+        """갱신할 월 목록 반환"""
+        today = datetime.now().date()
+        return [
+            (today.year, today.month),
+            (
+                today.year if today.month < 12 else today.year + 1,
+                today.month + 1 if today.month < 12 else 1,
+            ),
+        ]
+
+    def _should_refresh_cache(self, cache_key: str, force_update: bool) -> bool:
+        """캐시 갱신이 필요한지 확인"""
+        if force_update:
+            return True
+
+        if self.is_connected:
+            cached_data = self.redis_client.get(cache_key)
+            if not cached_data:
+                return True
+            try:
+                cache_info = json.loads(cached_data)
+                expires_at = datetime.fromisoformat(cache_info.get("expires_at", ""))
+                return datetime.now() > expires_at
+            except (json.JSONDecodeError, ValueError):
+                return True
+        else:
+            return cache_key not in self._memory_cache
+
     async def refresh_cache(
         self,
         regions: Optional[List[str]] = None,
         force_update: bool = False,
         origin: str = "ICN",
     ) -> Dict[str, Any]:
-        """
-        캐시 데이터 갱신
-
-        Args:
-            regions: 갱신할 지역 목록 (None시 전체)
-            force_update: 유효한 캐시도 강제 갱신
-            origin: 출발지 공항 코드
-
-        Returns:
-            갱신 결과 정보
-        """
-        try:
-            from app.tasks.monthly_data_collection import collect_monthly_cheapest_data
-        except ImportError as e:
-            logger.warning(f"Celery 태스크 모듈 로드 실패: {str(e)}")
+        """캐시 데이터 갱신"""
+        collect_monthly_cheapest_data = self._import_celery_task()
+        if not collect_monthly_cheapest_data:
             return {
                 "success": False,
                 "message": "백그라운드 태스크 시스템을 사용할 수 없습니다",
@@ -192,46 +219,12 @@ class CacheService:
                 "tasks_created": [],
             }
 
-            # 현재 월과 다음 월 데이터 갱신
-            today = datetime.now().date()
-            months_to_refresh = [
-                (today.year, today.month),
-                (
-                    today.year if today.month < 12 else today.year + 1,
-                    today.month + 1 if today.month < 12 else 1,
-                ),
-            ]
-
-            for year, month in months_to_refresh:
-                # 기존 캐시 확인
+            for year, month in self._get_months_to_refresh():
                 cache_key = self.cache_keys["monthly_data"].format(
                     origin=origin, year=year, month=month
                 )
 
-                should_refresh = force_update
-                if not should_refresh:
-                    # 캐시가 없거나 만료된 경우만 갱신
-                    if self.is_connected:
-                        cached_data = self.redis_client.get(cache_key)
-                        if not cached_data:
-                            should_refresh = True
-                        else:
-                            try:
-                                cache_info = json.loads(cached_data)
-                                expires_at = datetime.fromisoformat(
-                                    cache_info.get("expires_at", "")
-                                )
-                                if datetime.now() > expires_at:
-                                    should_refresh = True
-                            except (json.JSONDecodeError, ValueError):
-                                should_refresh = True
-                    else:
-                        # 메모리 캐시인 경우
-                        if cache_key not in self._memory_cache:
-                            should_refresh = True
-
-                if should_refresh:
-                    # Celery 태스크로 비동기 갱신
+                if self._should_refresh_cache(cache_key, force_update):
                     task = collect_monthly_cheapest_data.delay(year, month, origin)
                     refresh_info["tasks_created"].append(
                         {
@@ -303,54 +296,59 @@ class CacheService:
             logger.error(f"캐시 통계 조회 실패: {str(e)}")
             return {"error": str(e), "timestamp": datetime.now().isoformat()}
 
+    def _get_memory_cache_keys(
+        self, pattern: Optional[str], limit: int
+    ) -> Dict[str, Any]:
+        """메모리 캐시에서 키 조회"""
+        keys = list(self._memory_cache.keys())
+        if pattern:
+            import fnmatch
+
+            keys = [k for k in keys if fnmatch.fnmatch(k, pattern)]
+        return {"keys": keys[:limit], "total": len(keys), "sample_data": {}}
+
+    def _get_redis_cache_keys(
+        self, pattern: Optional[str], limit: int
+    ) -> Dict[str, Any]:
+        """레디스에서 키 조회"""
+        search_pattern = pattern or "*"
+        all_keys = []
+        cursor = 0
+        while True:
+            cursor, keys = self.redis_client.scan(
+                cursor=cursor, match=search_pattern, count=100
+            )
+            all_keys.extend(keys)
+            if cursor == 0:
+                break
+
+        limited_keys = all_keys[:limit]
+        sample_data = {}
+        if limited_keys:
+            try:
+                sample_key = limited_keys[0]
+                sample_value = self.redis_client.get(sample_key)
+                if sample_value:
+                    sample_data[sample_key] = json.loads(sample_value)
+            except (json.JSONDecodeError, Exception):
+                sample_data[sample_key] = "데이터 파싱 실패"
+
+        return {
+            "keys": limited_keys,
+            "total": len(all_keys),
+            "pattern": search_pattern,
+            "sample_data": sample_data,
+        }
+
     async def get_cache_keys(
         self, pattern: Optional[str] = None, limit: int = 100
     ) -> Dict[str, Any]:
         """캐시 키 목록 조회"""
         if not self.is_connected:
-            keys = list(self._memory_cache.keys())
-            if pattern:
-                # 간단한 패턴 매칭 (메모리 캐시용)
-                import fnmatch
-
-                keys = [k for k in keys if fnmatch.fnmatch(k, pattern)]
-
-            return {"keys": keys[:limit], "total": len(keys), "sample_data": {}}
+            return self._get_memory_cache_keys(pattern, limit)
 
         try:
-            # Redis에서 키 조회
-            search_pattern = pattern or "*"
-            all_keys = []
-            cursor = 0
-            while True:
-                cursor, keys = self.redis_client.scan(
-                    cursor=cursor, match=search_pattern, count=100
-                )
-                all_keys.extend(keys)
-                if cursor == 0:
-                    break
-
-            # 제한된 키만 반환
-            limited_keys = all_keys[:limit]
-
-            # 샘플 데이터 (첫 번째 키의 데이터)
-            sample_data = {}
-            if limited_keys:
-                try:
-                    sample_key = limited_keys[0]
-                    sample_value = self.redis_client.get(sample_key)
-                    if sample_value:
-                        sample_data[sample_key] = json.loads(sample_value)
-                except (json.JSONDecodeError, Exception):
-                    sample_data[sample_key] = "데이터 파싱 실패"
-
-            return {
-                "keys": limited_keys,
-                "total": len(all_keys),
-                "pattern": search_pattern,
-                "sample_data": sample_data,
-            }
-
+            return self._get_redis_cache_keys(pattern, limit)
         except Exception as e:
             logger.error(f"캐시 키 조회 실패: {str(e)}")
             return {"keys": [], "total": 0, "error": str(e)}
@@ -369,33 +367,62 @@ class CacheService:
             logger.error(f"캐시 키 삭제 실패: {str(e)}")
             return False
 
+    def _cleanup_memory_cache(self) -> int:
+        """메모리 캐시 정리"""
+        cleaned_count = 0
+        current_time = datetime.now()
+        expired_keys = []
+
+        for key, value in self._memory_cache.items():
+            if isinstance(value, dict) and "expires_at" in value:
+                try:
+                    expires_at = datetime.fromisoformat(value["expires_at"])
+                    if current_time > expires_at:
+                        expired_keys.append(key)
+                except (ValueError, TypeError):
+                    expired_keys.append(key)
+
+        for key in expired_keys:
+            del self._memory_cache[key]
+            cleaned_count += 1
+
+        while len(self._memory_cache) > 1000:
+            oldest_key = next(iter(self._memory_cache))
+            del self._memory_cache[oldest_key]
+            cleaned_count += 1
+
+        return cleaned_count
+
+    def _cleanup_redis_cache(self) -> int:
+        """레디스 캐시 정리"""
+        cleaned_count = 0
+        app_keys = self._get_app_cache_keys()
+
+        for key in app_keys:
+            try:
+                data = self.redis_client.get(key)
+                if data:
+                    cache_info = json.loads(data)
+                    expires_at_str = cache_info.get("expires_at")
+
+                    if expires_at_str:
+                        expires_at = datetime.fromisoformat(expires_at_str)
+                        if datetime.now() > expires_at:
+                            self.redis_client.delete(key)
+                            cleaned_count += 1
+
+            except (json.JSONDecodeError, ValueError, TypeError):
+                self.redis_client.delete(key)
+                cleaned_count += 1
+
+        logger.info(f"만료된 캐시 {cleaned_count}개 정리 완료")
+        return cleaned_count
+
     async def cleanup_expired_cache(self) -> Dict[str, Any]:
         """만료된 캐시 데이터 정리"""
-        cleaned_count = 0
-
+        current_time = datetime.now()
         if not self.is_connected:
-            # 메모리 캐시 정리 (간단한 구현)
-            current_time = datetime.now()
-            expired_keys = []
-
-            for key, value in self._memory_cache.items():
-                if isinstance(value, dict) and "expires_at" in value:
-                    try:
-                        expires_at = datetime.fromisoformat(value["expires_at"])
-                        if current_time > expires_at:
-                            expired_keys.append(key)
-                    except (ValueError, TypeError):
-                        expired_keys.append(key)
-
-            for key in expired_keys:
-                del self._memory_cache[key]
-                cleaned_count += 1
-
-            while len(self._memory_cache) > 1000:
-                oldest_key = next(iter(self._memory_cache))
-                del self._memory_cache[oldest_key]
-                cleaned_count += 1
-
+            cleaned_count = self._cleanup_memory_cache()
             return {
                 "cleaned_count": cleaned_count,
                 "cache_type": "memory",
@@ -403,41 +430,18 @@ class CacheService:
             }
 
         try:
-            # Redis 캐시 정리
-            app_keys = self._get_app_cache_keys()
-
-            for key in app_keys:
-                try:
-                    data = self.redis_client.get(key)
-                    if data:
-                        cache_info = json.loads(data)
-                        expires_at_str = cache_info.get("expires_at")
-
-                        if expires_at_str:
-                            expires_at = datetime.fromisoformat(expires_at_str)
-                            if datetime.now() > expires_at:
-                                self.redis_client.delete(key)
-                                cleaned_count += 1
-
-                except (json.JSONDecodeError, ValueError, TypeError):
-                    # 잘못된 형식의 캐시는 삭제
-                    self.redis_client.delete(key)
-                    cleaned_count += 1
-
-            logger.info(f"만료된 캐시 {cleaned_count}개 정리 완료")
-
+            cleaned_count = self._cleanup_redis_cache()
             return {
                 "cleaned_count": cleaned_count,
                 "cache_type": "redis",
-                "cleaned_at": datetime.now().isoformat(),
+                "cleaned_at": current_time.isoformat(),
             }
-
         except Exception as e:
             logger.error(f"캐시 정리 실패: {str(e)}")
             return {
                 "cleaned_count": 0,
                 "error": str(e),
-                "cleaned_at": datetime.now().isoformat(),
+                "cleaned_at": current_time.isoformat(),
             }
 
     async def get_memory_usage(self) -> Dict[str, Any]:
