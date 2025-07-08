@@ -21,7 +21,6 @@ repos:
         args: [--profile=black, --line-length=88, --multi-line=3]
         exclude: ^(migrations/|venv/|\.venv/)
 
-  # 코드 린팅 (로컬 훅 사용)
   - repo: local
     hooks:
       - id: flake8
@@ -30,29 +29,6 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-
-  # 타입 체킹 (비활성화)
-  # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: v1.8.0
-  #   hooks:
-  #     - id: mypy
-  #       name: "🏷️ MyPy (타입 체킹)"
-  #       args: [--ignore-missing-imports, --no-strict-optional]
-  #       additional_dependencies: [
-  #         types-requests,
-  #         types-redis,
-  #         types-python-dateutil
-  #       ]
-  #       exclude: ^(tests/|migrations/|venv/|\.venv/)
-
-  # 보안 취약점 검사 (비활성화)
-  # - repo: https://github.com/PyCQA/bandit
-  #   rev: 1.7.5
-  #   hooks:
-  #     - id: bandit
-  #       name: "🛡️ Bandit (보안 검사)"
-  #       args: [-r, ., -f, json, -o, bandit-report.json]
-  #       exclude: ^(tests/|venv/|\.venv/)
 
   # 일반적인 코드 품질 검사
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -71,10 +47,6 @@ repos:
       - id: check-added-large-files
         name: "📏 대용량 파일 체크"
         args: [--maxkb=1000]
-
-      # JSON 문법 검사 (비활성화)
-      # - id: check-json
-      #   name: "📋 JSON 문법 검사"
 
       # YAML 문법 검사
       - id: check-yaml
@@ -105,15 +77,6 @@ repos:
       - id: detect-private-key
         name: "🔐 개인키 노출 체크"
 
-  # Docstring 검사 (비활성화)
-  # - repo: https://github.com/pycqa/pydocstyle
-  #   rev: 6.3.0
-  #   hooks:
-  #     - id: pydocstyle
-  #       name: "📝 Pydocstyle (Docstring 검사)"
-  #       args: [--convention=google, --add-ignore=D100,D101,D102,D103,D104,D105]
-  #       exclude: ^(tests/|migrations/|venv/|\.venv/)
-
   # Jupyter Notebook 정리
   - repo: https://github.com/nbQA-dev/nbQA
     rev: 1.7.1
@@ -124,18 +87,6 @@ repos:
       - id: nbqa-isort
         name: "📓 Jupyter Notebook Import 정렬"
         args: [--profile=black]
-
-  # 환경변수 및 비밀정보 검사 (비활성화)
-  # - repo: https://github.com/Yelp/detect-secrets
-  #   rev: v1.4.0
-  #   hooks:
-  #     - id: detect-secrets
-  #       name: "🕵️ 비밀정보 노출 검사"
-  #       args: [
-  #         --exclude-files, '.*\.env.*',
-  #         --exclude-files, '.*\.key$',
-  #         --exclude-files, '.*\.pem$'
-  #       ]
 
   # 커밋 메시지 검사
   - repo: https://github.com/commitizen-tools/commitizen
