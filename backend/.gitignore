@@ -90,3 +90,6 @@ logs/
 
 # Redis dump
 dump.rdb
+
+# Security reports
+bandit-report.json
