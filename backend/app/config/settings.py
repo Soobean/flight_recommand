@@ -33,9 +33,25 @@ class Settings(BaseSettings):
     AZURE_OPENAI_MODEL: str = Field(default="gpt-4.1")
     AZURE_OPENAI_MAX_TOKENS: int = Field(default=4000)
 
-    #Anthropic 설정
+    # OpenAI 설정
+    OPENAI_API_KEY: Optional[str] = Field(default=None)
+
+    # Anthropic 설정
     ANTHROPIC_API_KEY: Optional[str] = Field(default=None)
-    
+
+    # LLM 서비스 설정
+    LLM_PROVIDER: str = Field(
+        default="openai", description="LLM 제공자 (openai, azure_openai, anthropic)"
+    )
+    LLM_MODEL: str = Field(default="gpt-4o-mini", description="사용할 LLM 모델")
+    LLM_MAX_TOKENS: int = Field(default=4000, description="최대 토큰 수")
+    LLM_TEMPERATURE: float = Field(default=0.7, description="LLM 온도 설정")
+
+    KOREAEXIM_API_KEY: Optional[str] = Field(default=None, description="한국수출입은행 API 키")
+    KOREAEXIM_BASE_URL: str = Field(
+        default="https://oapi.koreaexim.go.kr", description="한국수출입은행 API 기본 URL"
+    )
+
     # 데이터베이스 설정
     DATABASE_URL: Optional[str] = Field(default=None)
     DATABASE_ECHO: bool = Field(default=False)

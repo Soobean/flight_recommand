@@ -1,11 +1,12 @@
-from app.services.llm.llm_service import LLMService
-from typing import Dict
 import logging
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 
+
 class EfficiencyPromptBuilder:
     """효율성 점수 계산을 위한 프롬프트"""
+
     EFFICIENCY_SCORE_PROMPT_TEMPLATE = """
 당신은 여행 효율성 전문 분석가입니다.
 다음 항공편의 여행 효율 점수를 100점 만점으로 계산하고, 그 근거를 제시해주세요.
@@ -54,8 +55,7 @@ JSON 형식만 응답하고, 다른 텍스트는 포함하지 마세요.
         formatted_context = self._format_context(context or {})
 
         return self.EFFICIENCY_SCORE_PROMPT_TEMPLATE.format(
-            flight_data=formatted_flight,
-            context=formatted_context
+            flight_data=formatted_flight, context=formatted_context
         )
 
     def _format_flight_data(self, flight_data: Dict) -> str:
@@ -108,4 +108,3 @@ JSON 형식만 응답하고, 다른 텍스트는 포함하지 마세요.
             formatted += f"비교 대상: {flights_count}개 항공편\n"
 
         return formatted if formatted else "추가 컨텍스트 없음"
-

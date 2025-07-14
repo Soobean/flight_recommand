@@ -50,12 +50,30 @@ pip install -r requirements-dev.txt
 ### 3. 환경변수 설정
 
 ```bash
-# SECRET_KEY 생성
-python generate_secret_key.py
-
 # .env 파일 생성
-cp .env.example .env
-# .env 파일을 에디터로 열어서 필요한 값들 설정
+cp .env .env
+
+# .env 파일 예시
+cat > .env << 'EOF'
+# 기본 설정
+DEBUG=True
+ENVIRONMENT=development
+
+# Amadeus API (필수)
+AMADEUS_CLIENT_ID=your_amadeus_client_id
+AMADEUS_CLIENT_SECRET=your_amadeus_client_secret
+
+# LLM API (Phase 2)
+OPENAI_API_KEY=your_openai_api_key
+ANTHROPIC_API_KEY=your_anthropic_api_key
+
+# 환율 API (Phase 2)
+KOREAEXIM_API_KEY=your_koreaexim_api_key
+
+# Redis (선택사항, 기본값 사용 가능)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+EOF
 ```
 
 ### 4. 개발 서버 시작
@@ -82,6 +100,7 @@ backend/
 │   │   └── v1/
 │   │       ├── flights.py      # 항공편 API
 │   │       ├── regions.py      # 지역 API
+│   │       ├── llm.py          # LLM 분석 API
 │   │       ├── cache.py        # 캐시 API
 │   │       └── utils.py        # 유틸리티 API
 │   ├── config/
@@ -93,7 +112,11 @@ backend/
 │   ├── services/               # 비즈니스 로직
 │   │   ├── amadeus_service.py  # Amadeus API 연동
 │   │   ├── cache_service.py    # 캐시 관리
-│   │   └── region_service.py   # 지역 데이터 관리
+│   │   ├── region_service.py   # 지역 데이터 관리
+│   │   ├── llm/                # LLM 서비스
+│   │   │   └── llm_service.py  # AI 분석 서비스
+│   │   ├── exchange_rate_service.py  # 환율 변환 서비스
+│   │   └── monthly_price_analyzer.py # 월별 가격 분석
 │   ├── tasks/                  # Celery 태스크
 │   │   ├── celery_app.py       # Celery 설정
 │   │   └── monthly_data_collection.py
@@ -113,6 +136,9 @@ backend/
 - **`app/main.py`**: FastAPI 애플리케이션의 진입점
 - **`app/config/settings.py`**: 환경변수와 설정 관리
 - **`app/services/`**: 외부 API 연동 및 비즈니스 로직
+  - **`llm/`**: LLM 서비스 (OpenAI, Anthropic 지원)
+  - **`exchange_rate_service.py`**: 환율 변환 서비스 (한국수출입은행)
+  - **`monthly_price_analyzer.py`**: 월별 가격 분석 및 데이터 수집
 - **`app/utils/decorators.py`**: 캐싱, 예외처리 등의 데코레이터
 - **`tests/`**: 단위 테스트 및 통합 테스트
 
@@ -532,5 +558,3 @@ def safe_api_call() -> Union[Dict[str, Any], None]:
 ```
 
 ---
-
-**Happy Coding! 🚀**

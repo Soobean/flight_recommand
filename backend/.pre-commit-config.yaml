@@ -97,7 +97,7 @@ repos:
         stages: [commit-msg]
 
 # Pre-commit 설정
-default_stages: [commit]
+default_stages: [pre-commit]
 fail_fast: false
 
 # CI에서 실행할 추가 훅

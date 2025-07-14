@@ -8,6 +8,7 @@ from fastapi.responses import RedirectResponse
 
 from app.api.v1.cache import router as cache_router
 from app.api.v1.flights import router as flights_router
+from app.api.v1.llm import router as llm_router
 from app.api.v1.monthly_flights import router as monthly_flights_router
 from app.api.v1.regions import router as regions_router
 from app.api.v1.utils import router as utils_router
@@ -83,11 +84,11 @@ app.add_middleware(
 
 #  API 라우터 등록
 
-# Phase 1 MVP 필수 라우터들
 app.include_router(regions_router, prefix="/api/v1")  # 지역 관리 (메인 화면용)
 app.include_router(flights_router, prefix="/api/v1")  # 항공편 검색
 app.include_router(utils_router, prefix="/api/v1")  # 유틸리티
 app.include_router(cache_router, prefix="/api/v1")  # 캐시 관리
+app.include_router(llm_router, prefix="/api/v1")  # LLM 분석 및 환율 서비스
 
 # 기존 라우터 (호환성 유지)
 app.include_router(monthly_flights_router, prefix="/api/v1")  # 월별 항공편 (regions와 통합됨)
@@ -128,6 +129,7 @@ async def api_v1_info() -> Dict[str, Any]:
             "flights": "/api/v1/flights",
             "utils": "/api/v1/utils",
             "cache": "/api/v1/cache",
+            "llm": "/api/v1/llm",
             "monthly_flights": "/api/v1/monthly-flights",  # 호환성
         },
         "core_features": [
@@ -135,6 +137,9 @@ async def api_v1_info() -> Dict[str, Any]:
             "기간별 항공편 검색",
             "날짜/시즌 정보",
             "캐시 시스템",
+            "LLM 기반 항공편 분석",
+            "실시간 가격 알림",
+            "환율 변환 서비스",
         ],
     }
 
