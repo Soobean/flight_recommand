@@ -30,7 +30,21 @@ jobs:
     - name: Run pre-commit
       run: |
         cd backend
-        pre-commit run --all-files
+        OUTPUT=$(pre-commit run --all-files 2>&1)
+        echo "$OUTPUT" > pre_commit_output.txt
+        echo "output<<EOF" >> $GITHUB_OUTPUT
+        echo "$OUTPUT" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Comment PR with pre-commit output
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        header: pre-commit
+        message: |
+          ### ✅ Pre-commit Output
+          ```
+          ${{ steps.precommit.outputs.output }}
+          ```
 
     - name: Test API endpoints
       run: |
