@@ -3,7 +3,7 @@ name: 🧪 CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop, 'feature/**', 'hotfix/**' ]
+    branches: [ main, develop, 'feature/**', 'hotfix/**', 'ci/**']
   pull_request:
     branches: [ main, develop ]
 
