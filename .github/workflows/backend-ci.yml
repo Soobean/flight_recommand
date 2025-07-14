@@ -34,7 +34,7 @@ jobs:
       id: precommit
       run: |
         cd backend
-        OUTPUT=$(pre-commit run --all-files 2>&1)
+        OUTPUT=$(pre-commit run --all-files 2>&1 || true)
         echo "$OUTPUT" > pre_commit_output.txt
         echo "output<<EOF" >> $GITHUB_OUTPUT
         echo "$OUTPUT" >> $GITHUB_OUTPUT
