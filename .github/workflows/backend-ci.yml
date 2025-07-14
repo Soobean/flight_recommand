@@ -31,6 +31,7 @@ jobs:
         pip install -r requirements-dev.txt
 
     - name: Run pre-commit
+      id: precommit
       run: |
         cd backend
         OUTPUT=$(pre-commit run --all-files 2>&1)
