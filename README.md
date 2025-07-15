@@ -49,8 +49,10 @@
   - 새로운 항공편 출시 알림
 - **💱 환율 변환 서비스**:
   - 한국수출입은행 API 연동
-  - 92개 통화 지원
+  - 80+ 통화 지원 (USD, JPY, EUR, GBP 등)
   - 실시간 환율 정보 및 과거 환율 조회
+  - 통화 변환 기능 (KRW ↔ 외화)
+  - 캐싱 시스템으로 빠른 응답
 
 ### 🔮 **Phase 3: 가격 예측 (개발 중)**
 - **📈 ML 기반 가격 예측**: scikit-learn, XGBoost 활용한 항공료 예측
@@ -95,7 +97,7 @@
 
 ```bash
 # 저장소 클론
-git clone https://github.com/your-username/flight_recommand.git
+git clone https://github.com/WiseAirPJ/flight_recommand.git
 cd flight_recommand/backend
 
 # 가상환경 생성 및 활성화
@@ -173,6 +175,12 @@ curl -X POST \"http://localhost:8000/api/v1/llm/currency-conversion\" \\
     \"from_currency\": \"KRW\",
     \"to_currency\": \"JPY\"
   }'
+
+# 현재 환율 조회
+curl -X GET \"http://localhost:8000/api/v1/llm/exchange-rates?currency_codes=USD,JPY,EUR\"
+
+# 과거 환율 조회
+curl -X GET \"http://localhost:8000/api/v1/llm/exchange-rates/historical?date=20250701&currency_codes=USD\"
 ```
 
 ## 🛠️ 개발 환경
@@ -294,7 +302,7 @@ backend/
 ### 지원 범위
 - **항공편 검색**: 한국 ↔ 일본 노선
 - **지역 커버리지**: 일본 6개 주요 지역
-- **통화 지원**: 92개 통화
+- **통화 지원**: 80+ 통화 (한국수출입은행 API 기반)
 - **언어 지원**: 한국어, 영어, 일본어
 
 ---

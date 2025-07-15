@@ -2,7 +2,7 @@
 
 지능형 일본 항공권 분석기 REST API 상세 문서입니다.
 
-## 🎯 현재 상태: 43개 엔드포인트 완전 구현 ✅
+## 🎯 현재 상태: 48개 엔드포인트 완전 구현 ✅
 
 **2025년 7월 6일 기준: 모든 API 엔드포인트 완성 및 테스트 검증 완료**
 
@@ -32,7 +32,7 @@
 - **Character Encoding**: UTF-8
 - **Framework**: FastAPI 0.115
 - **Python Version**: 3.12
-- **총 엔드포인트**: 43개
+- **총 엔드포인트**: 48개
 
 ### 대화형 API 문서
 
@@ -49,9 +49,10 @@
 | 항공편 검색 API | 5개 | ✅ 100% | 기본/기간별 검색 |
 | 월별 분석 API | 4개 | ✅ 100% | 월별 최저가 분석 |
 | 유틸리티 API | 6개 | ✅ 100% | 공항 검색, 환율 정보 |
+| 환율 API | 5개 | ✅ 100% | 한국수출입은행 환율 연동 |
 | 날짜 관리 API | 15개 | ✅ 100% | 공휴일, 시즌 정보 |
 | 캐시 관리 API | 6개 | ✅ 100% | 캐시 상태, 통계 |
-| **총합** | **43개** | **✅ 100%** | **모든 기능 완성** |
+| **총합** | **48개** | **✅ 100%** | **모든 기능 완성** |
 
 ## 🛡️ 인증
 
@@ -961,6 +962,146 @@ KRW/JPY 환율 정보를 조회합니다.
 **Query Parameters:**
 - `year`: 연도
 - `vacation_days`: 사용 가능한 휴가 일수
+
+## 💱 환율 API
+
+### 현재 환율 조회
+
+#### `GET /api/v1/llm/exchange-rates`
+
+현재 환율 정보를 조회합니다.
+
+**Query Parameters:**
+- `currency_codes` (optional): 쉼표로 구분된 통화 코드 목록 (예: "USD,JPY,EUR")
+
+**응답 예시:**
+```json
+{
+  "success": true,
+  "rates": [
+    {
+      "currency_code": "USD",
+      "currency_name": "미국 달러",
+      "base_rate": 1350.50,
+      "buy_rate": 1360.00,
+      "sell_rate": 1341.00,
+      "send_rate": 1355.00,
+      "receive_rate": 1346.00,
+      "exchange_date": "20250715"
+    },
+    {
+      "currency_code": "JPY",
+      "currency_name": "일본 엔",
+      "base_rate": 9.12,
+      "buy_rate": 9.25,
+      "sell_rate": 8.99,
+      "send_rate": 9.15,
+      "receive_rate": 9.05,
+      "exchange_date": "20250715"
+    }
+  ],
+  "updated_at": "2025-07-15T12:00:00Z",
+  "source": "한국수출입은행"
+}
+```
+
+### 과거 환율 조회
+
+#### `GET /api/v1/llm/exchange-rates/historical`
+
+특정 날짜의 과거 환율 정보를 조회합니다.
+
+**Query Parameters:**
+- `date` (required): 조회할 날짜 (YYYYMMDD 형식)
+- `currency_codes` (optional): 쉼표로 구분된 통화 코드 목록
+
+**응답 예시:**
+```json
+{
+  "success": true,
+  "rates": [
+    {
+      "currency_code": "USD",
+      "currency_name": "미국 달러",
+      "base_rate": 1345.20,
+      "buy_rate": 1355.00,
+      "sell_rate": 1335.40,
+      "send_rate": 1350.00,
+      "receive_rate": 1340.40,
+      "exchange_date": "20250701"
+    }
+  ],
+  "updated_at": "2025-07-15T12:00:00Z",
+  "source": "한국수출입은행"
+}
+```
+
+### 통화 변환
+
+#### `POST /api/v1/llm/currency-conversion`
+
+통화 변환을 수행합니다.
+
+**Request Body:**
+```json
+{
+  "amount": 500000,
+  "from_currency": "KRW",
+  "to_currency": "JPY"
+}
+```
+
+**응답 예시:**
+```json
+{
+  "success": true,
+  "amount": 500000,
+  "from_currency": "KRW",
+  "to_currency": "JPY",
+  "converted_amount": 45600.00,
+  "exchange_rate": 0.0912,
+  "converted_at": "2025-07-15T12:00:00Z",
+  "rate_date": "20250715"
+}
+```
+
+### 지원 통화 목록
+
+#### `GET /api/v1/llm/exchange-rates/supported`
+
+지원하는 통화 코드 목록을 조회합니다.
+
+**응답 예시:**
+```json
+{
+  "success": true,
+  "supported_currencies": [
+    "USD", "JPY", "EUR", "GBP", "CHF", "CAD", "AUD", "NZD",
+    "SEK", "NOK", "DKK", "CNY", "HKD", "SGD", "THB", "MYR",
+    "INR", "IDR", "PHP", "VND", "BRL", "RUB", "ZAR", "TRY"
+  ],
+  "total_count": 80
+}
+```
+
+### 환율 캐시 통계
+
+#### `GET /api/v1/llm/exchange-rates/cache-stats`
+
+환율 캐시 시스템의 통계 정보를 조회합니다.
+
+**응답 예시:**
+```json
+{
+  "success": true,
+  "cache_stats": {
+    "total_entries": 25,
+    "valid_entries": 23,
+    "cache_hit_ratio": 0.92,
+    "default_ttl": 3600
+  }
+}
+```
 
 ## 💾 캐시 관리 API
 
