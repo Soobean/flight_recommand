@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     DEBUG: bool = Field(default=False)
     ENVIRONMENT: str = Field(default="development")
 
+    EFFICIENCY_SCORE_CACHE_TTL: int = Field(default=3600, description="효율성 점수 캐시 TTL")
+    MAX_FLIGHTS_PER_ANALYSIS: int = Field(default=10, description="한 번에 분석할 최대 항공편 수")
+
     # Amadeus API 설정
     AMADEUS_CLIENT_ID: Optional[str] = Field(
         default=None, description="Amadeus 클라이언트 ID"
@@ -29,6 +32,9 @@ class Settings(BaseSettings):
     AZURE_OPENAI_DEPLOYMENT_NAME: str = Field(default="gpt-4.1")
     AZURE_OPENAI_MODEL: str = Field(default="gpt-4.1")
     AZURE_OPENAI_MAX_TOKENS: int = Field(default=4000)
+
+    # Anthropic 설정
+    ANTHROPIC_API_KEY: Optional[str] = Field(default=None)
 
     # 데이터베이스 설정
     DATABASE_URL: Optional[str] = Field(default=None)
