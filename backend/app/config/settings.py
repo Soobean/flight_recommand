@@ -33,9 +33,9 @@ class Settings(BaseSettings):
     AZURE_OPENAI_MODEL: str = Field(default="gpt-4.1")
     AZURE_OPENAI_MAX_TOKENS: int = Field(default=4000)
 
-    #Anthropic 설정
+    # Anthropic 설정
     ANTHROPIC_API_KEY: Optional[str] = Field(default=None)
-    
+
     # 데이터베이스 설정
     DATABASE_URL: Optional[str] = Field(default=None)
     DATABASE_ECHO: bool = Field(default=False)
