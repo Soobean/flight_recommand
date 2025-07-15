@@ -1,8 +1,6 @@
 import logging
 from typing import Dict
 
-from app.services.llm.llm_service import LLMService
-
 logger = logging.getLogger(__name__)
 
 
