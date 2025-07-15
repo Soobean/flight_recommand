@@ -10,6 +10,7 @@ from app.api.v1.cache import router as cache_router
 from app.api.v1.flights import router as flights_router
 from app.api.v1.llm import router as llm_router
 from app.api.v1.monthly_flights import router as monthly_flights_router
+from app.api.v1.prediction import router as prediction_router
 from app.api.v1.regions import router as regions_router
 from app.api.v1.utils import router as utils_router
 from app.config.settings import settings
@@ -89,6 +90,9 @@ app.include_router(flights_router, prefix="/api/v1")  # 항공편 검색
 app.include_router(utils_router, prefix="/api/v1")  # 유틸리티
 app.include_router(cache_router, prefix="/api/v1")  # 캐시 관리
 app.include_router(llm_router, prefix="/api/v1")  # LLM 분석 및 환율 서비스
+app.include_router(
+    prediction_router, prefix="/api/v1/prediction", tags=["Price Prediction"]
+)  # 가격 예측
 
 # 기존 라우터 (호환성 유지)
 app.include_router(monthly_flights_router, prefix="/api/v1")  # 월별 항공편 (regions와 통합됨)
