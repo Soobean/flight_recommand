@@ -17,7 +17,7 @@ class FlightAnalysisRequest(BaseModel):
     flight_data: List[Dict[str, Any]] = Field(..., description="항공편 데이터")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "query": "서울에서 도쿄로 가는 항공편",
                 "flight_data": [
