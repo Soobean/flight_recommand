@@ -31,6 +31,19 @@ class MonthlyPriceAnalyzer:
 
         self.executor = ThreadPoolExecutor(max_workers=5)
 
+        self.low_cost_carriers = {
+            "7C",
+            "LJ",
+            "BX",
+            "ZE",
+            "TW",
+            "4V",
+            "GK",
+            "MM",
+            "VY",
+            "IT",
+        }
+
         # 일본 지역별 공항 정보
         self.japan_regions = {
             "hokkaido": {
@@ -164,6 +177,23 @@ class MonthlyPriceAnalyzer:
         )
         return search_dates
 
+    def _calculate_baggage_fee(
+        self, carrier_code: str, adults: int, currency: str = "EUR"
+    ) -> float:
+        """
+        항공사별 수하물 요금 계산
+        """
+        if carrier_code in self.low_cost_carriers:
+            # 저가형 항공사: 20kg 기준 수하물 요금
+            if currency == "EUR":
+                # 유로 기준: 약 20유로 (30,000원 ÷ 1,500원/유로)
+                return 20.0 * adults
+            else:
+                # 원화 기준: 30,000원
+                return 30000 * adults
+        else:
+            return 0
+
     async def _find_cheapest_dates_for_region(
         self,
         origin: str,
@@ -287,9 +317,41 @@ class MonthlyPriceAnalyzer:
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(self.executor, _search)
 
+            if hasattr(response, "data") and response.data:
+                processed_data = []
+                for offer in response.data:
+                    carrier_code = "KE"  # 기본값
+                    if offer.get("itineraries") and offer["itineraries"][0].get(
+                        "segments"
+                    ):
+                        carrier_code = offer["itineraries"][0]["segments"][0].get(
+                            "carrierCode", "KE"
+                        )
+
+                    original_price = float(offer.get("price", {}).get("total", "0"))
+
+                    baggage_fee = self._calculate_baggage_fee(
+                        carrier_code, adults, "EUR"
+                    )
+
+                    final_price = original_price + baggage_fee
+
+                    offer["price"]["total"] = str(round(final_price, 2))
+                    offer["carrier_code"] = carrier_code
+                    offer["base_price"] = str(round(original_price, 2))
+                    offer["baggage_fee"] = str(round(baggage_fee, 2))
+                    offer["is_low_cost"] = carrier_code in self.low_cost_carriers
+
+                    processed_data.append(offer)
+
+                return {
+                    "success": True,
+                    "data": processed_data,
+                }
+
             return {
                 "success": True,
-                "data": response.data if hasattr(response, "data") else [],
+                "data": [],
             }
 
         except Exception as error:
@@ -339,7 +401,25 @@ class MonthlyPriceAnalyzer:
         }
         season_multiplier = month_multipliers.get(dept_date.month, 1.0)
 
-        final_price = int(base_price * weekday_multiplier * season_multiplier * adults)
+        import random
+
+        random.seed(hash(f"{origin}{destination}{departure_date}"))  # 일관성을 위한 시드
+
+        if random.random() < 0.6:
+            carrier_code = random.choice(list(self.low_cost_carriers))
+        else:
+            # 일반 항공사
+            carrier_code = random.choice(["KE", "OZ", "NH", "JL"])
+
+        base_flight_price = int(
+            base_price * weekday_multiplier * season_multiplier * adults
+        )
+
+        # 수하물 요금 계산 (KRW 기준)
+        baggage_fee = self._calculate_baggage_fee(carrier_code, adults, "KRW")
+
+        # 최종 가격 = 기본 항공료 + 수하물 요금
+        final_price = int(base_flight_price + baggage_fee)
 
         return {
             "success": True,
@@ -347,6 +427,10 @@ class MonthlyPriceAnalyzer:
                 {
                     "type": "flight-offer",
                     "price": {"currency": "KRW", "total": str(final_price)},
+                    "carrier_code": carrier_code,
+                    "base_price": str(base_flight_price),
+                    "baggage_fee": str(int(baggage_fee)),
+                    "is_low_cost": carrier_code in self.low_cost_carriers,
                 }
             ],
         }

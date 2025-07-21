@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 from amadeus import Client, ResponseError
 
 from app.config.settings import settings
+from app.services.exchange_rate_service import ExchangeRateService
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,8 @@ class AmadeusService:
             logger.warning(
                 "AmadeusService initialized in dummy mode - API keys not provided"
             )
+
+        self.exchange_rate_service = ExchangeRateService()
 
     async def search_cheapest_dates(
         self,
@@ -110,12 +113,15 @@ class AmadeusService:
             loop = asyncio.get_event_loop()
 
             def _search():
+                # KRW 요청 시 JPY로 검색 후 변환
+                search_currency = "JPY" if currency == "KRW" else currency
+
                 params = {
                     "originLocationCode": origin,
                     "destinationLocationCode": destination,
                     "departureDate": departure_date,
                     "adults": adults,
-                    "currencyCode": currency,
+                    "currencyCode": search_currency,
                     "max": 10,
                 }
 
@@ -127,9 +133,15 @@ class AmadeusService:
             response = await loop.run_in_executor(None, _search)
 
             if response.data:
+                data = response.data
+
+                # JPY로 검색했을 때 KRW로 변환
+                if currency == "KRW":
+                    data = await self._convert_prices_to_krw(data, "JPY")
+
                 return {
                     "success": True,
-                    "data": response.data,
+                    "data": data,
                     "meta": getattr(response, "meta", {}),
                     "dictionaries": getattr(response, "dictionaries", {}),
                 }
@@ -326,3 +338,46 @@ class AmadeusService:
                 "message": "공항 정보를 찾을 수 없습니다.",
                 "data": {},
             }
+
+    async def _convert_prices_to_krw(self, data, from_currency: str):
+        """가격 데이터를 KRW로 변환"""
+        try:
+            # 환율 정보 가져오기
+            rates_response = await self.exchange_rate_service.get_current_rates(
+                [from_currency]
+            )
+            if not rates_response.success or not rates_response.rates:
+                logger.warning(f"환율 정보를 가져올 수 없습니다: {from_currency}")
+                return data
+
+            rate = rates_response.rates[0].base_rate
+
+            if isinstance(data, list):
+                for offer in data:
+                    if "price" in offer:
+                        self._convert_price_dict(offer["price"], rate)
+                    if "travelerPricings" in offer:
+                        for traveler in offer["travelerPricings"]:
+                            if "price" in traveler:
+                                self._convert_price_dict(traveler["price"], rate)
+
+            return data
+        except Exception as e:
+            logger.error(f"가격 변환 중 오류 발생: {e}")
+            return data
+
+    def _convert_price_dict(self, price_dict: dict, rate: float):
+        """가격 딕셔너리의 통화를 KRW로 변환"""
+        try:
+            if "total" in price_dict:
+                original_total = float(price_dict["total"])
+                price_dict["total"] = str(int(original_total * rate))
+
+            if "base" in price_dict:
+                original_base = float(price_dict["base"])
+                price_dict["base"] = str(int(original_base * rate))
+
+            price_dict["currency"] = "KRW"
+        except (ValueError, TypeError) as e:
+            logger.error(f"가격 변환 중 오류: {e}")
+            pass
