@@ -472,11 +472,18 @@ class CacheService:
                     # 주의: 프로덕션에서는 성능에 영향을 줄 수 있음
                     memory_usage = self.redis_client.memory_usage(key)
                     key_sizes[key] = memory_usage
-                except Exception:
+                except (
+                    redis.exceptions.ResponseError,
+                    redis.exceptions.ConnectionError,
+                ) as e:
                     # DEBUG OBJECT를 지원하지 않는 Redis 버전
-                    data = self.redis_client.get(key)
-                    if data:
-                        key_sizes[key] = len(data.encode("utf-8"))
+                    logger.warning(f"Redis memory_usage 명령 실패 ({key}): {e}")
+                    try:
+                        data = self.redis_client.get(key)
+                        if data:
+                            key_sizes[key] = len(data.encode("utf-8"))
+                    except Exception as fallback_error:
+                        logger.error(f"키 크기 측정 실패 ({key}): {fallback_error}")
 
             # 상위 사용량 키들
             top_keys = sorted(key_sizes.items(), key=lambda x: x[1], reverse=True)[:10]

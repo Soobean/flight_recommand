@@ -9,7 +9,6 @@ from fastapi.responses import RedirectResponse
 from app.api.v1.cache import router as cache_router
 from app.api.v1.flights import router as flights_router
 from app.api.v1.llm import router as llm_router
-from app.api.v1.monthly_flights import router as monthly_flights_router
 from app.api.v1.prediction import router as prediction_router
 from app.api.v1.regions import router as regions_router
 from app.api.v1.utils import router as utils_router
@@ -94,8 +93,7 @@ app.include_router(
     prediction_router, prefix="/api/v1/prediction", tags=["Price Prediction"]
 )  # 가격 예측
 
-# 기존 라우터 (호환성 유지)
-app.include_router(monthly_flights_router, prefix="/api/v1")  # 월별 항공편 (regions와 통합됨)
+# 월별 분석 기능은 regions 라우터
 
 logger.info("모든 API 라우터 등록 완료")
 
@@ -134,7 +132,7 @@ async def api_v1_info() -> Dict[str, Any]:
             "utils": "/api/v1/utils",
             "cache": "/api/v1/cache",
             "llm": "/api/v1/llm",
-            "monthly_flights": "/api/v1/monthly-flights",  # 호환성
+            "monthly_analysis": "/api/v1/regions/monthly-analysis",
         },
         "core_features": [
             "지역별 최저가 조회",
