@@ -466,7 +466,7 @@ class CacheService:
             app_keys = self._get_app_cache_keys()
             key_sizes = {}
 
-            for key in app_keys[:20]:  # 상위 20개만 샘플링
+            for key in app_keys[:10]:  # 상위 10개만 샘플링 (성능 최적화)
                 try:
                     # DEBUG OBJECT 명령으로 메모리 사용량 조회
                     # 주의: 프로덕션에서는 성능에 영향을 줄 수 있음

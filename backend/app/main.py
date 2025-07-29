@@ -37,9 +37,10 @@ app = FastAPI(
     - `GET /api/v1/regions/{region_id}/airports` - 지역별 공항 목록
 
     #### ✈️ 항공편 검색
-    - `POST /api/v1/flights/search` - 기본 항공편 검색
+    - `POST /api/v1/flights/search` - 기본 항공편 검색 (왕복/편도 모두 지원)
+    - `POST /api/v1/flights/search-oneway` - **편도 항공편 전용 검색**
     - `POST /api/v1/flights/search-by-duration` - **기간별 검색 (3박4일, 4박5일 등)**
-    - `POST /api/v1/flights/cheapest-dates` - 최저가 날짜 검색
+    - `POST /api/v1/flights/cheapest-dates` - 최저가 날짜 검색 (편도/왕복 모두 지원)
 
     #### 🛠️ 유틸리티
     - `GET /api/v1/utils/date-info` - 날짜/공휴일/시즌 정보
@@ -184,6 +185,7 @@ async def health_check() -> Dict[str, Any]:
                 "total_routes": len(app.routes),
                 "core_apis": [
                     "/api/v1/regions/lowest-prices",
+                    "/api/v1/flights/search-oneway",
                     "/api/v1/flights/search-by-duration",
                     "/api/v1/utils/date-info",
                     "/api/v1/cache/status",

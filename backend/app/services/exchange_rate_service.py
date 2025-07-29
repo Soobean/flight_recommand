@@ -66,7 +66,7 @@ class ExchangeRateService:
         self.endpoint = "/site/program/financial/exchangeJSON"
         self.auth_key = settings.KOREAEXIM_API_KEY
         self.cache = {}
-        self.cache_ttl = 3600  # 1시간 캐시
+        self.cache_ttl = 14400
 
     async def get_current_rates(
         self, currency_codes: Optional[List[str]] = None
