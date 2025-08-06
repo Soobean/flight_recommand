@@ -775,18 +775,23 @@ class CacheService:
             if self.is_connected:
                 cursor = 0
                 while True:
-                    cursor, keys = self.redis_client.scan(cursor=cursor, match=pattern, count=100)
+                    cursor, keys = self.redis_client.scan(
+                        cursor=cursor, match=pattern, count=100
+                    )
                     if keys:
                         deleted_count += self.redis_client.delete(*keys)
                     if cursor == 0:
                         break
             else:
                 import fnmatch
-                keys_to_delete = [k for k in self._memory_cache.keys() if fnmatch.fnmatch(k, pattern)]
+
+                keys_to_delete = [
+                    k for k in self._memory_cache.keys() if fnmatch.fnmatch(k, pattern)
+                ]
                 for key in keys_to_delete:
                     del self._memory_cache[key]
                     deleted_count += 1
-            
+
             logger.info(f"패턴 '{pattern}'에 맞는 캐시 {deleted_count}개 삭제")
             return deleted_count
         except Exception as e:

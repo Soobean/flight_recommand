@@ -425,9 +425,9 @@ class ExchangeRateService:
         try:
             return {
                 "service_type": "exchange_rate",
-                "cache_backend": "CacheService", 
+                "cache_backend": "CacheService",
                 "default_ttl": self.cache_ttl,
-                "cache_service_stats": "Use CacheService.get_cache_statistics() for detailed stats"
+                "cache_service_stats": "Use CacheService.get_cache_statistics() for detailed stats",
             }
         except Exception as e:
             logger.error(f"캐시 통계 조회 실패: {e}")

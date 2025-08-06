@@ -148,17 +148,17 @@ def cleanup_expired_cache():
     """
     try:
         logger.info("만료된 캐시 정리 작업 시작")
-        
+
         # 서비스를 통한 캐시 정리
         result = collection_service.cleanup_expired_cache()
-        
+
         if result["success"]:
             logger.info(f"캐시 정리 작업 완료: {result['cleaned_count']}개 정리")
             return result["message"]
         else:
             logger.error(f"캐시 정리 작업 실패: {result['message']}")
             return result["message"]
-            
+
     except Exception as e:
         logger.error(f"캐시 정리 작업 예외 발생: {str(e)}")
         return f"Cache cleanup failed: {str(e)}"
@@ -172,19 +172,19 @@ def update_cache_statistics():
     """
     try:
         logger.info("캐시 통계 업데이트 작업 시작")
-        
+
         # 서비스를 통한 통계 조회
         stats = collection_service.get_collection_statistics()
-        
+
         if stats["success"]:
             # 통계 정보를 캐시에 저장
             cache_service.set_cache("cache_statistics", stats, 3600)  # 1시간 캐시
             logger.info(f"캐시 통계 업데이트 완료: {stats['total_cached_months']}개 항목")
         else:
             logger.error(f"캐시 통계 조회 실패: {stats.get('error', 'Unknown error')}")
-            
+
         return stats
-        
+
     except Exception as e:
         logger.error(f"캐시 통계 업데이트 작업 예외 발생: {str(e)}")
         return {"error": str(e)}
@@ -200,24 +200,20 @@ def force_collect_month_data(year: int, month: int, origin: str = "ICN"):
     """
     try:
         logger.info(f"강제 데이터 수집 작업 시작: {year}년 {month}월")
-        
+
         # 서비스를 통한 강제 갱신
         result = collection_service.force_refresh_month_data(year, month, origin)
-        
+
         if result["success"]:
             logger.info(f"강제 데이터 수집 완료: {year}년 {month}월")
         else:
             logger.error(f"강제 데이터 수집 실패: {result['message']}")
-            
+
         return result
-        
+
     except Exception as e:
         logger.error(f"강제 데이터 수집 작업 예외 발생: {str(e)}")
-        return {
-            "success": False,
-            "message": f"강제 수집 작업 실패: {str(e)}",
-            "error": str(e)
-        }
+        return {"success": False, "message": f"강제 수집 작업 실패: {str(e)}", "error": str(e)}
 
 
 @celery_app.task
@@ -228,29 +224,29 @@ def collect_multi_origin_data(year: int, month: int, origins: List[str] = None):
     try:
         if origins is None:
             origins = ["ICN"]  # 현재는 ICN만 지원
-            
+
         logger.info(f"다중 출발지 데이터 수집 작업 시작: {len(origins)}개 출발지")
-        
+
         tasks = []
         for origin in origins:
             task = collect_monthly_cheapest_data.delay(year, month, origin)
             tasks.append(task.id)
-            
+
         logger.info(f"다중 출발지 수집 작업 생성 완료: {len(tasks)}개 작업")
         return {
             "success": True,
             "message": f"{len(tasks)}개 수집 작업 생성 완료",
             "task_ids": tasks,
-            "origins": origins
+            "origins": origins,
         }
-        
+
     except Exception as e:
         logger.error(f"다중 출발지 수집 작업 예외 발생: {str(e)}")
         return {
             "success": False,
             "message": f"다중 출발지 수집 작업 실패: {str(e)}",
             "error": str(e),
-            "task_ids": []
+            "task_ids": [],
         }
 
 
